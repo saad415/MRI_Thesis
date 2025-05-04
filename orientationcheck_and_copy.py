@@ -13,6 +13,8 @@ def find_sagittal_folders(base_path):
     sagittal_folders = []
 
     for root, dirs, files in os.walk(base_path):
+        if "localizer" in root.lower():  # Skip folders with "localizer" in path
+            continue
         for file in files:
             if file.endswith(".dcm"):
                 try:
