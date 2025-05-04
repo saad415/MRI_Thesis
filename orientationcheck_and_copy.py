@@ -9,11 +9,13 @@ def is_sagittal(image_orientation):
         return np.allclose(row_cosines, [0, 1, 0], atol=0.1)
     return False
 
-def find_sagittal_folders(base_path):
+def find_target_folders(base_path):
     sagittal_folders = []
+    t2_tse_cor_folders = []
 
     for root, dirs, files in os.walk(base_path):
-        if "localizer" in root.lower():  # Skip folders with "localizer" in path
+        root_lower = root.lower()
+        if "localizer" in root_lower or "tumor" in root_lower:
             continue
         for file in files:
             if file.endswith(".dcm"):
@@ -21,13 +23,21 @@ def find_sagittal_folders(base_path):
                     filepath = os.path.join(root, file)
                     dcm = pydicom.dcmread(filepath, stop_before_pixels=True)
                     orientation = dcm.get("ImageOrientationPatient", None)
+                    series_desc = dcm.get("SeriesDescription", "").lower()
+
+                    if "tumor" in series_desc:
+                        break  # skip this folder
                     if is_sagittal(orientation):
                         sagittal_folders.append(root)
                         break
+                    elif "t2_tse_cor" in series_desc:
+                        t2_tse_cor_folders.append(root)
+                        break
+
                 except Exception as e:
                     print(f"Error reading {file} in {root}: {e}")
 
-    return list(set(sagittal_folders))
+    return list(set(sagittal_folders)), list(set(t2_tse_cor_folders))
 
 def copy_folders(folder_list, destination_root):
     os.makedirs(destination_root, exist_ok=True)
@@ -61,14 +71,19 @@ def copy_folders(folder_list, destination_root):
 
 # === Configuration ===
 base_dir = r"C:\Users\Saad\Desktop\Thesis\Real\healthy_IMPALA"
-destination_root = r"C:\Users\Saad\Desktop\Thesis\Real\Sagittal_Selected"
+sagittal_dest = r"C:\Users\Saad\Desktop\Thesis\Real\Sagittal_Selected"
+coronal_dest  = r"C:\Users\Saad\Desktop\Thesis\Real\Coronal_Selected_t2_tse_cor"
 
 # === Run the script ===
-sagittal_dirs = find_sagittal_folders(base_dir)
-print("Sagittal folders found:")
+sagittal_dirs, coronal_dirs = find_target_folders(base_dir)
+
+print("🧭 Sagittal folders found:")
 for folder in sagittal_dirs:
-    print(folder)
+    print("  -", folder)
 
-copy_folders(sagittal_dirs, destination_root)
+print("\n🧭 Coronal (t2_tse_cor, excluding Tumor) folders found:")
+for folder in coronal_dirs:
+    print("  -", folder)
 
-# === Run the script ===
+copy_folders(sagittal_dirs, sagittal_dest)
+copy_folders(coronal_dirs, coronal_dest)
