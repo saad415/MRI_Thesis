@@ -2,12 +2,22 @@ import os
 import SimpleITK as sitk
 import numpy as np
 
-# === Configuration ===
-input_root = r"C:\Users\Saad\Desktop\Thesis\Real\Sagittal_Selected_NIfTI"
-output_root = r"C:\Users\Saad\Desktop\Thesis\Real\Sagittal_Selected_NIfTI_Resample"
+# === Settings ===
 new_spacing = [1.0, 1.0, 1.0]
 
-# === Helper Function ===
+# Input-output pairs
+tasks = [
+    {
+        "input_root": r"C:\Users\Saad\Desktop\Thesis\Real\Sagittal_Selected_NIfTI",
+        "output_root": r"C:\Users\Saad\Desktop\Thesis\Real\Sagittal_Selected_NIfTI_Resample"
+    },
+    {
+        "input_root": r"C:\Users\Saad\Desktop\Thesis\Real\Coronal_Selected_t2_tse_cor_NIfTI",
+        "output_root": r"C:\Users\Saad\Desktop\Thesis\Real\Coronal_Selected_t2_tse_cor_NIfTI_Resample"
+    }
+]
+
+# === Function ===
 def resample_and_normalize(input_path, output_path):
     image = sitk.ReadImage(input_path)
     original_spacing = image.GetSpacing()
@@ -28,7 +38,7 @@ def resample_and_normalize(input_path, output_path):
 
     resampled_image = resampler.Execute(image)
 
-    # Normalize
+    # Normalize (z-score)
     array = sitk.GetArrayFromImage(resampled_image).astype(np.float32)
     norm_array = (array - np.mean(array)) / np.std(array)
     norm_image = sitk.GetImageFromArray(norm_array)
@@ -36,19 +46,24 @@ def resample_and_normalize(input_path, output_path):
 
     sitk.WriteImage(norm_image, output_path)
 
-# === Main Loop ===
-for root, _, files in os.walk(input_root):
-    for file in files:
-        if file.endswith(".nii") or file.endswith(".nii.gz"):
-            input_path = os.path.join(root, file)
-            relative_path = os.path.relpath(root, input_root)
-            output_dir = os.path.join(output_root, relative_path)
-            os.makedirs(output_dir, exist_ok=True)
-            output_path = os.path.join(output_dir, file)
+# === Loop Through Tasks ===
+for task in tasks:
+    input_root = task["input_root"]
+    output_root = task["output_root"]
+    print(f"\n🚀 Processing: {input_root} → {output_root}\n")
 
-            print(f"🔄 Processing: {input_path}")
-            try:
-                resample_and_normalize(input_path, output_path)
-                print(f"✅ Saved: {output_path}")
-            except Exception as e:
-                print(f"❌ Failed on {input_path}: {e}")
+    for root, _, files in os.walk(input_root):
+        for file in files:
+            if file.endswith(".nii") or file.endswith(".nii.gz"):
+                input_path = os.path.join(root, file)
+                relative_path = os.path.relpath(root, input_root)
+                output_dir = os.path.join(output_root, relative_path)
+                os.makedirs(output_dir, exist_ok=True)
+                output_path = os.path.join(output_dir, file)
+
+                print(f"🔄 Resampling: {input_path}")
+                try:
+                    resample_and_normalize(input_path, output_path)
+                    print(f"✅ Saved: {output_path}")
+                except Exception as e:
+                    print(f"❌ Failed: {input_path} — {e}")
